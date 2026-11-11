@@ -18,6 +18,28 @@ namespace ScumMiniMap {
         internal static bool PackageManaged { get { return IsWine && Environment.GetEnvironmentVariable("SCUM_MINIMAP_PACKAGED")=="1"; } }
         internal const string AutoLaunchHelp="On Linux/Proton, start MiniMap together with SCUM through the Steam launch option \"scum-minimap-steam %command%\". It closes automatically with the game.";
         internal const string UpdateHelp="On Linux, MiniMap is updated by the scum-minimap package (pacman/AUR helper), not by the built-in updater.";
+        [StructLayout(LayoutKind.Sequential)] struct Rect { public int Left,Top,Right,Bottom; }
+        [DllImport("user32.dll")] static extern bool GetWindowRect(IntPtr window,out Rect rect);
+        [DllImport("user32.dll")] static extern bool GetClientRect(IntPtr window,out Rect rect);
+        [DllImport("user32.dll")] static extern bool IsWindowVisible(IntPtr window);
+        static int logLines;
+        // Linux-only layout diagnostics (window geometry, no user data) in linux-diagnostics.log.
+        internal static void Log(string text) {
+            if(!IsWine || Interlocked.Increment(ref logLines)>400) return;
+            try {
+                string folder=Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),"ScumMiniMap");
+                Directory.CreateDirectory(folder);
+                File.AppendAllText(Path.Combine(folder,"linux-diagnostics.log"),DateTime.UtcNow.ToString("o")+" "+text+Environment.NewLine);
+            } catch { }
+        }
+        internal static string DescribeWindow(IntPtr window) {
+            if(window==IntPtr.Zero) return "hwnd=0";
+            Rect w,c;
+            bool hasWindow=GetWindowRect(window,out w),hasClient=GetClientRect(window,out c);
+            return "hwnd=0x"+window.ToInt64().ToString("X")+" visible="+IsWindowVisible(window)+
+                (hasWindow?" window="+w.Left+","+w.Top+" "+(w.Right-w.Left)+"x"+(w.Bottom-w.Top):" window=?")+
+                (hasClient?" client="+(c.Right-c.Left)+"x"+(c.Bottom-c.Top):" client=?");
+        }
         static bool Detect() {
             if(Environment.GetEnvironmentVariable("SCUM_MINIMAP_LINUX")=="1")return true;
             try {
