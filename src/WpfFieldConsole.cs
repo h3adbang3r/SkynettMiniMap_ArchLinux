@@ -1305,7 +1305,11 @@ namespace ScumMiniMap {
         Window BuildTactical() {
             var window=Window("SCUM MiniMap — Field console",1280,850);window.MinWidth=900;window.MinHeight=620;window.Topmost=true;window.ShowActivated=false;
             bool solidTest=Program.IsTestBuild&&(Environment.GetCommandLineArgs().Any(arg=>string.Equals(arg,"--fast-tac-test",StringComparison.OrdinalIgnoreCase))||Environment.GetEnvironmentVariable("SCUM_MINIMAP_TAC_OPAQUE")=="1");
-            window.AllowsTransparency=!solidTest;window.Background=solidTest?WpfFieldTheme.Ground:Brushes.Transparent;
+            // Wine only refreshes the changed part of a transparent (layered) WPF window, so the
+            // sidebar and toolbars vanish after the first frame. Use an opaque map window there.
+            bool opaqueOnWine=WineHost.IsWine&&Environment.GetEnvironmentVariable("SCUM_MINIMAP_TAC_TRANSPARENT")!="1";
+            window.AllowsTransparency=!solidTest&&!opaqueOnWine;window.Background=solidTest||opaqueOnWine?WpfFieldTheme.Ground:Brushes.Transparent;
+            if(opaqueOnWine)window.ResizeMode=ResizeMode.NoResize;
             window.SourceInitialized+=(s,e)=> {
                 var handle=new WindowInteropHelper(window).Handle;
                 SetWindowLong(handle,-20,GetWindowLong(handle,-20)|0x08000000);
