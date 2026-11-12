@@ -1,4 +1,4 @@
-# Maintainer: Sven (h3adbang3r)
+# Maintainer: h3adbang3r
 # Builds SCUM MiniMap from source on Arch Linux / CachyOS and installs the
 # Proton launcher. MiniMap itself is a .NET Framework/WPF program that runs
 # inside SCUM's Proton prefix.
