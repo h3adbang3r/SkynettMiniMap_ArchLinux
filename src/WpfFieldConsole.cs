@@ -1212,7 +1212,9 @@ namespace ScumMiniMap {
             LastMonitorBounds=monitor.Bounds;
             System.Drawing.Rectangle gameBounds;
             Native.TryGameClientBounds(gameMapWindow,out gameBounds);
-            return ResolveMapBounds(engine.WpfManualMap,engine.WpfMapBounds,gameBounds,monitor.Bounds,System.Windows.Forms.Screen.AllScreens.Select(s=>s.Bounds).ToArray());
+            var resolved=ResolveMapBounds(engine.WpfManualMap,engine.WpfMapBounds,gameBounds,monitor.Bounds,System.Windows.Forms.Screen.AllScreens.Select(s=>s.Bounds).ToArray());
+            if(WineHost.IsWine&&resolved!=lastTacticalBounds)WineHost.Log("tactical bounds manual="+engine.WpfManualMap+" saved="+engine.WpfMapBounds+" game="+gameBounds+" monitor="+monitor.Bounds+" screens="+string.Join(";",System.Windows.Forms.Screen.AllScreens.Select(s=>s.Bounds.ToString()))+" gameWindow["+WineHost.DescribeWindow(gameMapWindow)+"] resolved="+resolved);
+            return resolved;
         }
         internal static System.Drawing.Rectangle ResolveMapBounds(bool manual,System.Drawing.Rectangle saved,System.Drawing.Rectangle game,System.Drawing.Rectangle monitor,System.Drawing.Rectangle[] monitors) {
             if(manual&&saved.Width>=640&&saved.Height>=420)return RecoverMapBounds(saved,monitors);
@@ -1233,6 +1235,18 @@ namespace ScumMiniMap {
             tactical.Width=size.X;tactical.Height=size.Y;
             SetWindowPos(handle,new IntPtr(-1),bounds.X,bounds.Y,bounds.Width,bounds.Height,0x0010);
             tactical.UpdateLayout();lastTacticalBounds=bounds;
+            if(WineHost.IsWine)WineHost.Log("tactical apply requested="+bounds+" "+WineHost.DescribeWindow(handle)+" wpf="+tactical.ActualWidth.ToString("0",CultureInfo.InvariantCulture)+"x"+tactical.ActualHeight.ToString("0",CultureInfo.InvariantCulture)+" dpi="+source.CompositionTarget.TransformToDevice.M11.ToString("0.##",CultureInfo.InvariantCulture));
+        }
+        void LogTacticalLater() {
+            // Captures window-manager moves/resizes and which overlay controls WPF actually laid out.
+            foreach(int delay in new[]{300,1500,4000}) {
+                var timer=new System.Windows.Threading.DispatcherTimer { Interval=TimeSpan.FromMilliseconds(delay) };
+                timer.Tick+=(s,e)=> { timer.Stop();if(!TacticalVisible)return;
+                    var handle=new WindowInteropHelper(tactical).Handle;
+                    string layout=sidebar==null?"sidebar=null":"sidebar="+sidebar.ActualWidth.ToString("0",CultureInfo.InvariantCulture)+"x"+sidebar.ActualHeight.ToString("0",CultureInfo.InvariantCulture)+" sidebarItems="+sidebar.Children.Count;
+                    WineHost.Log("tactical after "+delay+"ms "+WineHost.DescribeWindow(handle)+" wpf="+tactical.ActualWidth.ToString("0",CultureInfo.InvariantCulture)+"x"+tactical.ActualHeight.ToString("0",CultureInfo.InvariantCulture)+" state="+tactical.WindowState+" "+layout+" renderTier="+(System.Windows.Media.RenderCapability.Tier>>16)); };
+                timer.Start();
+            }
         }
         internal void StartViews() { tactical.Hide();engine.WpfTactical(false);if(hudEnabled)hud.Show();Refresh(); }
         internal static bool ShouldShowHud(bool enabled,bool tacticalVisible) { return enabled&&!tacticalVisible; }
@@ -1539,7 +1553,7 @@ if(followButton!=null)followButton.Background=engine.WpfFollowing?WpfFieldTheme.
                 if(forward&&!diagnostic) { var binding=engine.WpfSnapshot(false);Native.ReturnMapKey(gameMapWindow,binding.MapKey,binding.MapScan); }
             } else {
                 gameMapWindow=diagnostic?IntPtr.Zero:Native.AdminGameWindow();
-                hud.Hide();engine.WpfTactical(true);engine.WpfFollow();tactical.WindowState=WindowState.Normal;tactical.Show();FitTacticalToMonitor();
+                hud.Hide();engine.WpfTactical(true);engine.WpfFollow();tactical.WindowState=WindowState.Normal;tactical.Show();FitTacticalToMonitor();if(WineHost.IsWine)LogTacticalLater();
             }
             Refresh();
         }
