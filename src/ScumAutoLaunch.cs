@@ -75,7 +75,8 @@ namespace ScumMiniMap {
             timer=new Timer(_=> {
                 if(Interlocked.Exchange(ref busy,1)!=0)return;
                 try {
-                    bool enabled=Enabled;
+                    // Started by the Linux Steam launch option: close together with the game.
+                    bool enabled=Enabled||WineHost.PackageManaged;
                     if(Volatile.Read(ref disposed)==0&&lifetime.Observe(enabled,enabled?GameRunning():null,DateTime.UtcNow)) {
                         if(Interlocked.Exchange(ref disposed,1)==0)exit();
                     }
